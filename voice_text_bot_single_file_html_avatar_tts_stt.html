@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voice + Text Bot (Avatar, TTS & STT)</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121a2b;
+      --accent: #7c5cff;
+      --accent-2: #36c2ff;
+      --text: #e9ecf1;
+      --muted: #9aa3b2;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 20px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 700px at 80% -10%, #1d2740 0%, #0b1220 60%);
+      color: var(--text);
+      display: grid; place-items: center; padding: 24px;
+    }
+
+    .app {
+      width: min(1100px, 100%);
+      display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: stretch;
+    }
+    @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
+
+    /* LEFT: Avatar + controls */
+    .left {
+      background: linear-gradient(180deg, rgba(124,92,255,.12), rgba(54,194,255,.06)), var(--panel);
+      border: 1px solid rgba(124,92,255,.25);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px; position: sticky; top: 20px; height: fit-content;
+    }
+    .title {
+      font-size: 18px; font-weight: 700; letter-spacing: .4px; display: flex; align-items: center; gap: 10px;
+    }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 20px rgba(239,68,68,.5) }
+    .status-dot.online { background: var(--success); box-shadow: 0 0 20px rgba(34,197,94,.5) }
+
+    .avatar-wrap { display: grid; place-items: center; padding: 24px 12px 12px }
+    .avatar {
+      width: 220px; aspect-ratio: 1; border-radius: 50%; position: relative; overflow: hidden;
+      background: radial-gradient(120px 120px at 60% 20%, rgba(124,92,255,.3), rgba(124,92,255,.02)), linear-gradient(180deg, #142038, #0f172a);
+      border: 2px solid rgba(124,92,255,.35);
+      box-shadow: inset 0 0 20px rgba(124,92,255,.25), 0 20px 50px rgba(0,0,0,.45);
+    }
+    .sparkle {
+      position: absolute; top: -40%; left: -40%; width: 180%; height: 180%;
+      background: conic-gradient(from 0deg, rgba(124,92,255,.15), rgba(54,194,255,.15), rgba(124,92,255,.15));
+      filter: blur(40px); mix-blend-mode: screen; animation: spin 14s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .face { position: absolute; inset: 0; display: grid; place-items: center; }
+    .eyes { display: flex; gap: 60px; transform: translateY(-18px); }
+    .eye { width: 26px; height: 26px; border-radius: 50%; background: #fff; position: relative; overflow: hidden; }
+    .pupil { position: absolute; width: 12px; height: 12px; background: #0b1220; border-radius: 50%; top: 7px; left: 7px; transition: transform .12s ease; }
+    .mouth {
+      width: 90px; height: 22px; border-radius: 40px; background: #ffd6e7; margin-top: 14px;
+      box-shadow: inset 0 -10px 0 rgba(255, 88, 126, .8);
+      position: relative; overflow: hidden;
+      transform-origin: 50% 50%;
+    }
+    .mouth::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.7), transparent 60%); }
+    .talking .mouth { animation: talk 200ms ease-in-out infinite alternate; }
+    @keyframes talk { from { height: 12px; } to { height: 36px; } }
+
+    .subtitles { text-align: center; margin-top: 10px; min-height: 22px; color: var(--muted); font-size: 13px; }
+
+    .controls { display: grid; gap: 10px; margin-top: 14px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .control, select, button, input[type="text"] {
+      background: #0f172a; border: 1px solid rgba(124,92,255,.25); color: var(--text);
+      border-radius: 12px; padding: 10px 12px; font-size: 14px; outline: none;
+    }
+    button { cursor: pointer; transition: transform .05s ease, background .2s; }
+    button:hover { transform: translateY(-1px); }
+    .primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); border: none; }
+    .danger { background: #1f2937; border-color: rgba(239,68,68,.4); color: #fee2e2; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #0f172a; border: 1px solid rgba(124,92,255,.25); font-size: 12px; color: var(--muted); }
+
+    /* RIGHT: Chat */
+    .chat {
+      background: var(--panel); border-radius: var(--radius); border: 1px solid rgba(124,92,255,.25);
+      box-shadow: var(--shadow); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+    }
+    .chat header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(124,92,255,.2); }
+    .chat header .h {
+      font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 10px;
+    }
+    .chat .log { padding: 18px; overflow: auto; display: grid; gap: 12px; }
+    .msg { display: grid; gap: 6px; }
+    .bubble { max-width: 75%; padding: 10px 12px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.35; }
+    .from-user { justify-items: end; }
+    .from-user .bubble { background: #1f2937; border: 1px solid #243042; justify-self: end; border-bottom-right-radius: 6px; }
+    .from-bot .bubble { background: #101826; border: 1px solid rgba(124,92,255,.35); border-bottom-left-radius: 6px; }
+
+    .composer { padding: 14px; border-top: 1px solid rgba(124,92,255,.2); display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
+    .composer input { width: 100%; }
+
+    .hint { color: var(--muted); font-size: 12px; margin-top: 8px; text-align: center; }
+    .tag { font-size: 11px; color: var(--muted); }
+    .sr-only { position: absolute; left: -9999px; }
+
+    .k { background: #0f172a; padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(124,92,255,.25); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="left">
+      <div class="title"><span class="status-dot" id="status"></span> Voice Assistant</div>
+      <div class="avatar-wrap">
+        <div class="avatar" id="avatar">
+          <div class="sparkle"></div>
+          <div class="face">
+            <div class="eyes">
+              <div class="eye"><div class="pupil" id="pupilL"></div></div>
+              <div class="eye"><div class="pupil" id="pupilR"></div></div>
+            </div>
+            <div class="mouth" id="mouth"></div>
+          </div>
+        </div>
+        <div class="subtitles" id="subtitles">—</div>
+      </div>
+
+      <div class="controls">
+        <label class="pill"><input id="autoListen" type="checkbox" checked /> Auto‑listen after reply</label>
+        <label class="pill"><input id="autoSpeak" type="checkbox" checked /> Speak bot replies</label>
+        <div class="row">
+          <select id="voiceSelect" aria-label="Voice"></select>
+          <input type="range" id="rate" min="0.7" max="1.3" step="0.05" value="1" title="Rate" />
+        </div>
+        <div class="row">
+          <button id="btnListen" class="primary">🎤 Start Listening</button>
+          <button id="btnStop" class="danger">■ Stop</button>
+        </div>
+        <div class="hint">Mic: press <span class="k">Space</span> to toggle. Chat send: <span class="k">Enter</span>.</div>
+      </div>
+    </section>
+
+    <section class="chat">
+      <header>
+        <div class="h">🤖 Nova — your voice bot</div>
+        <div class="tag" id="capabilities">Loading capabilities…</div>
+      </header>
+
+      <div class="log" id="log" aria-live="polite" aria-relevant="additions"></div>
+
+      <div class="composer">
+        <input id="textInput" type="text" placeholder="Type a message…" autocomplete="off" />
+        <button id="sendBtn">Send</button>
+        <button id="micBtn">🎤</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const qs = (s, el = document) => el.querySelector(s);
+    const el = {
+      status: qs('#status'), avatar: qs('#avatar'), mouth: qs('#mouth'),
+      subtitles: qs('#subtitles'), log: qs('#log'), input: qs('#textInput'),
+      send: qs('#sendBtn'), micBtn: qs('#micBtn'), btnListen: qs('#btnListen'),
+      btnStop: qs('#btnStop'), autoListen: qs('#autoListen'), autoSpeak: qs('#autoSpeak'),
+      voiceSelect: qs('#voiceSelect'), rate: qs('#rate'), capabilities: qs('#capabilities'),
+      pupilL: qs('#pupilL'), pupilR: qs('#pupilR')
+    };
+
+    const supports = {
+      tts: 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window,
+      stt: 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window,
+    };
+    el.capabilities.textContent = `TTS: ${supports.tts ? 'Yes' : 'No'} • STT: ${supports.stt ? 'Yes' : 'No'}`;
+
+    function pushMessage(text, who = 'bot') {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + (who === 'user' ? 'from-user' : 'from-bot');
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.textContent = text;
+      wrap.appendChild(b);
+      el.log.appendChild(wrap);
+      el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    function setTalking(on) {
+      el.avatar.classList.toggle('talking', !!on);
+      el.status.classList.toggle('online', !!on);
+    }
+
+    // ---------- Simple reply logic (replace with your API) ----------
+    function smartReply(userText) {
+      const t = userText.trim().toLowerCase();
+      if (!t) return "Say something and I'll respond!";
+      if (/\btime\b/.test(t)) return `It's ${new Date().toLocaleTimeString()}.`;
+      if (/\bdate\b|\bday\b/.test(t)) return `Today is ${new Date().toLocaleDateString()}.`;
+      if (/\bhello|hi|hey\b/.test(t)) return "Hey! I'm Nova. Ask me anything or just chat.";
+      if (/\bname\b/.test(t)) return "I'm Nova, your voice+text buddy.";
+      if (/\bwho are you\b/.test(t)) return "I'm a demo assistant that can listen and talk.";
+      if (/\bhelp\b/.test(t)) return "Try: 'what's the time', 'tell me a joke', or just speak to me.";
+      if (/\bjoke\b/.test(t)) return "Why do programmers prefer dark mode? Because light attracts bugs!";
+      return `You said: "${userText}"`;
+    }
+
+    // ---------- Text-To-Speech ----------
+    let voices = [];
+    function loadVoices() {
+      if (!supports.tts) return;
+      voices = window.speechSynthesis.getVoices();
+      el.voiceSelect.innerHTML = '';
+      voices.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `${v.name} (${v.lang})${v.default ? ' — default' : ''}`;
+        el.voiceSelect.appendChild(opt);
+      });
+      if (voices.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = 'No voices found';
+        el.voiceSelect.appendChild(opt);
+      }
+    }
+    if (supports.tts) {
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    let speaking = false;
+    function speak(text) {
+      if (!supports.tts) return Promise.resolve();
+      return new Promise((resolve) => {
+        try {
+          const u = new SpeechSynthesisUtterance(text);
+          const idx = parseInt(el.voiceSelect.value, 10);
+          if (voices[idx]) u.voice = voices[idx];
+          u.rate = parseFloat(el.rate.value || '1');
+          u.onstart = () => { speaking = true; setTalking(true); el.subtitles.textContent = text; };
+          u.onend = () => { speaking = false; setTalking(false); el.subtitles.textContent = '—'; resolve(); };
+          u.onerror = () => { speaking = false; setTalking(false); resolve(); };
+          window.speechSynthesis.cancel(); // stop any prior speech
+          window.speechSynthesis.speak(u);
+        } catch (e) { resolve(); }
+      });
+    }
+
+    // ---------- Speech-To-Text ----------
+    let rec = null; let listening = false;
+    if (supports.stt) {
+      const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+      rec = new R();
+      rec.lang = navigator.language || 'en-US';
+      rec.interimResults = true;
+      rec.continuous = false; // one utterance
+
+      let interim = '';
+      rec.onstart = () => { listening = true; el.status.classList.add('online'); el.subtitles.textContent = 'Listening…'; };
+      rec.onresult = (e) => {
+        let final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const res = e.results[i];
+          if (res.isFinal) final += res[0].transcript; else interim += res[0].transcript;
+        }
+        el.subtitles.textContent = final || interim || 'Listening…';
+      };
+      rec.onerror = (e) => { console.warn('STT error', e.error); el.subtitles.textContent = 'Mic error: ' + e.error; listening = false; el.status.classList.remove('online'); };
+      rec.onend = async () => {
+        listening = false; el.status.classList.remove('online');
+        const text = el.subtitles.textContent.trim();
+        if (text && text !== 'Listening…') {
+          handleUserText(text);
+        } else {
+          el.subtitles.textContent = '—';
+        }
+      };
+    }
+
+    async function startListening() {
+      if (!rec) return alert('Speech recognition not supported in this browser. Try Chrome.');
+      if (speaking) window.speechSynthesis.cancel();
+      try { rec.start(); } catch { /* already started */ }
+    }
+    function stopAll() {
+      if (rec && listening) rec.stop();
+      if (supports.tts && speaking) window.speechSynthesis.cancel();
+      setTalking(false);
+      el.subtitles.textContent = '—';
+    }
+
+    // ---------- Message flow ----------
+    async function handleUserText(text) {
+      pushMessage(text, 'user');
+      el.input.value = '';
+      const reply = smartReply(text);
+      pushMessage(reply, 'bot');
+      if (el.autoSpeak.checked) await speak(reply);
+      if (el.autoListen.checked) startListening();
+    }
+
+    // ---------- Events ----------
+    el.send.addEventListener('click', () => {
+      const val = el.input.value.trim();
+      if (val) handleUserText(val);
+    });
+    el.input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); const v = el.input.value.trim(); if (v) handleUserText(v); }
+    });
+
+    el.btnListen.addEventListener('click', startListening);
+    el.micBtn.addEventListener('click', startListening);
+    el.btnStop.addEventListener('click', stopAll);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault(); listening ? stopAll() : startListening();
+      }
+    });
+
+    // Pupil follow effect
+    document.addEventListener('mousemove', (e) => {
+      const rect = el.avatar.getBoundingClientRect();
+      const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2 - 18;
+      const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (rect.width/2)));
+      const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (rect.height/2)));
+      const m = 6; // max px offset
+      const tx = dx * m; const ty = dy * m;
+      el.pupilL.style.transform = `translate(${tx}px, ${ty}px)`;
+      el.pupilR.style.transform = `translate(${tx}px, ${ty}px)`;
+    });
+
+    // Greet on load
+    pushMessage("Hello! I'm Nova. Tap the mic or press Space and talk to me.");
+    if (supports.tts) speak("Hello! I'm Nova. Tap the mic or press Space and talk to me.");
+  </script>
+</body>
+</html>
