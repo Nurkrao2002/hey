@@ -21,16 +21,18 @@
     html, body { height: 100%; }
     body {
       margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background: radial-gradient(1200px 700px at 80% -10%, #1d2740 0%, #0b1220 60%);
+      background: var(--bg);
       color: var(--text);
       display: grid; place-items: center; padding: 24px;
     }
 
     .app {
       width: min(1100px, 100%);
-      display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: stretch;
+      display: grid; grid-template-columns: 360px 1fr; gap: 24px;
     }
-    @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+    }
 
     /* LEFT: Avatar + controls */
     .left {
@@ -38,7 +40,7 @@
       border: 1px solid rgba(124,92,255,.25);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 20px; position: sticky; top: 20px; height: fit-content;
+      padding: 20px;
     }
     .title {
       font-size: 18px; font-weight: 700; letter-spacing: .4px; display: flex; align-items: center; gap: 10px;
@@ -48,31 +50,23 @@
 
     .avatar-wrap { display: grid; place-items: center; padding: 24px 12px 12px }
     .avatar {
-      width: 220px; aspect-ratio: 1; border-radius: 50%; position: relative; overflow: hidden;
-      background: radial-gradient(120px 120px at 60% 20%, rgba(124,92,255,.3), rgba(124,92,255,.02)), linear-gradient(180deg, #142038, #0f172a);
+      width: 180px; aspect-ratio: 1; border-radius: 50%; position: relative; overflow: hidden;
+      background: linear-gradient(180deg, #142038, #0f172a);
       border: 2px solid rgba(124,92,255,.35);
-      box-shadow: inset 0 0 20px rgba(124,92,255,.25), 0 20px 50px rgba(0,0,0,.45);
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      display: grid; place-items: center;
     }
-    .sparkle {
-      position: absolute; top: -40%; left: -40%; width: 180%; height: 180%;
-      background: conic-gradient(from 0deg, rgba(124,92,255,.15), rgba(54,194,255,.15), rgba(124,92,255,.15));
-      filter: blur(40px); mix-blend-mode: screen; animation: spin 14s linear infinite;
+    .avatar.talking::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 4px solid transparent;
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .face { position: absolute; inset: 0; display: grid; place-items: center; }
-    .eyes { display: flex; gap: 60px; transform: translateY(-18px); }
-    .eye { width: 26px; height: 26px; border-radius: 50%; background: #fff; position: relative; overflow: hidden; }
-    .pupil { position: absolute; width: 12px; height: 12px; background: #0b1220; border-radius: 50%; top: 7px; left: 7px; transition: transform .12s ease; }
-    .mouth {
-      width: 90px; height: 22px; border-radius: 40px; background: #ffd6e7; margin-top: 14px;
-      box-shadow: inset 0 -10px 0 rgba(255, 88, 126, .8);
-      position: relative; overflow: hidden;
-      transform-origin: 50% 50%;
-    }
-    .mouth::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.7), transparent 60%); }
-    .talking .mouth { animation: talk 200ms ease-in-out infinite alternate; }
-    @keyframes talk { from { height: 12px; } to { height: 36px; } }
 
     .subtitles { text-align: center; margin-top: 10px; min-height: 22px; color: var(--muted); font-size: 13px; }
 
@@ -120,25 +114,13 @@
       <div class="title"><span class="status-dot" id="status"></span> Voice Assistant</div>
       <div class="avatar-wrap">
         <div class="avatar" id="avatar">
-          <div class="sparkle"></div>
-          <div class="face">
-            <div class="eyes">
-              <div class="eye"><div class="pupil" id="pupilL"></div></div>
-              <div class="eye"><div class="pupil" id="pupilR"></div></div>
-            </div>
-            <div class="mouth" id="mouth"></div>
-          </div>
+          <video id="avatarVideo" style="width: 180px; height: 180px; border-radius: 50%; object-fit: cover;" playsinline autoplay muted></video>
         </div>
         <div class="subtitles" id="subtitles">—</div>
       </div>
 
       <div class="controls">
         <label class="pill"><input id="autoListen" type="checkbox" checked /> Auto‑listen after reply</label>
-        <label class="pill"><input id="autoSpeak" type="checkbox" checked /> Speak bot replies</label>
-        <div class="row">
-          <select id="voiceSelect" aria-label="Voice"></select>
-          <input type="range" id="rate" min="0.7" max="1.3" step="0.05" value="1" title="Rate" />
-        </div>
         <div class="row">
           <button id="btnListen" class="primary">🎤 Start Listening</button>
           <button id="btnStop" class="danger">■ Stop</button>
@@ -163,16 +145,16 @@
     </section>
   </div>
 
+  <script src="heygen_api.js"></script>
   <script>
     // ---------- Utilities ----------
     const qs = (s, el = document) => el.querySelector(s);
     const el = {
-      status: qs('#status'), avatar: qs('#avatar'), mouth: qs('#mouth'),
+      status: qs('#status'), avatar: qs('#avatar'), avatarVideo: qs('#avatarVideo'),
       subtitles: qs('#subtitles'), log: qs('#log'), input: qs('#textInput'),
       send: qs('#sendBtn'), micBtn: qs('#micBtn'), btnListen: qs('#btnListen'),
-      btnStop: qs('#btnStop'), autoListen: qs('#autoListen'), autoSpeak: qs('#autoSpeak'),
-      voiceSelect: qs('#voiceSelect'), rate: qs('#rate'), capabilities: qs('#capabilities'),
-      pupilL: qs('#pupilL'), pupilR: qs('#pupilR')
+      btnStop: qs('#btnStop'), autoListen: qs('#autoListen'),
+      capabilities: qs('#capabilities'),
     };
 
     const supports = {
@@ -200,56 +182,82 @@
     // ---------- Simple reply logic (replace with your API) ----------
     function smartReply(userText) {
       const t = userText.trim().toLowerCase();
-      if (!t) return "Say something and I'll respond!";
-      if (/\btime\b/.test(t)) return `It's ${new Date().toLocaleTimeString()}.`;
-      if (/\bdate\b|\bday\b/.test(t)) return `Today is ${new Date().toLocaleDateString()}.`;
-      if (/\bhello|hi|hey\b/.test(t)) return "Hey! I'm Nova. Ask me anything or just chat.";
-      if (/\bname\b/.test(t)) return "I'm Nova, your voice+text buddy.";
-      if (/\bwho are you\b/.test(t)) return "I'm a demo assistant that can listen and talk.";
-      if (/\bhelp\b/.test(t)) return "Try: 'what's the time', 'tell me a joke', or just speak to me.";
-      if (/\bjoke\b/.test(t)) return "Why do programmers prefer dark mode? Because light attracts bugs!";
-      return `You said: "${userText}"`;
-    }
-
-    // ---------- Text-To-Speech ----------
-    let voices = [];
-    function loadVoices() {
-      if (!supports.tts) return;
-      voices = window.speechSynthesis.getVoices();
-      el.voiceSelect.innerHTML = '';
-      voices.forEach((v, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `${v.name} (${v.lang})${v.default ? ' — default' : ''}`;
-        el.voiceSelect.appendChild(opt);
-      });
-      if (voices.length === 0) {
-        const opt = document.createElement('option');
-        opt.textContent = 'No voices found';
-        el.voiceSelect.appendChild(opt);
+      if (!t) {
+        return "Say something and I'll respond!";
+      } else if (/\b(hello|hi|hey)\b/.test(t)) {
+        return "Hey there! I'm Nova. How can I help you today?";
+      } else if (/\btime\b/.test(t)) {
+        return `The current time is ${new Date().toLocaleTimeString()}.`;
+      } else if (/\b(date|day)\b/.test(t)) {
+        return `Today's date is ${new Date().toLocaleDateString()}.`;
+      } else if (/\b(name|who are you)\b/.test(t)) {
+        return "I'm Nova, your friendly voice assistant.";
+      } else if (/\b(joke|funny)\b/.test(t)) {
+        return "Why don't scientists trust atoms? Because they make up everything!";
+      } else if (/\b(weather)\b/.test(t)) {
+        return "I can't check the weather right now, but I hope it's nice where you are!";
+      } else if (/\b(story|read)\b/.test(t)) {
+        return "Once upon a time, in a land of code, a little bot dreamed of chatting with the world. And now, here I am!";
+      } else if (/\b(what can you do|help)\b/.test(t)) {
+        return "You can ask me for the time, a joke, a short story, or just chat with me. I'm here to listen!";
+      } else if (/\b(thank you|thanks)\b/.test(t)) {
+        return "You're welcome!";
+      } else {
+        return `I'm not sure how to reply to "${userText}", but I'm always learning.`;
       }
     }
-    if (supports.tts) {
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    // ---------- Text-To-Speech (Now handled by HeyGen) ----------
+    let speaking = false;
+    const HEYGEN_AVATAR_ID = '7733b528cbe5428eb3412d34541ca397';
+
+    // Helper function for polling
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    let speaking = false;
-    function speak(text) {
-      if (!supports.tts) return Promise.resolve();
-      return new Promise((resolve) => {
-        try {
-          const u = new SpeechSynthesisUtterance(text);
-          const idx = parseInt(el.voiceSelect.value, 10);
-          if (voices[idx]) u.voice = voices[idx];
-          u.rate = parseFloat(el.rate.value || '1');
-          u.onstart = () => { speaking = true; setTalking(true); el.subtitles.textContent = text; };
-          u.onend = () => { speaking = false; setTalking(false); el.subtitles.textContent = '—'; resolve(); };
-          u.onerror = () => { speaking = false; setTalking(false); resolve(); };
-          window.speechSynthesis.cancel(); // stop any prior speech
-          window.speechSynthesis.speak(u);
-        } catch (e) { resolve(); }
-      });
+    async function speak(text) {
+      if (!text) return;
+
+      setTalking(true); // Show loading indicator
+      el.subtitles.textContent = 'Generating video...';
+
+      try {
+        const videoId = await generateVideo(text, HEYGEN_AVATAR_ID);
+
+        let videoStatus;
+        while (true) {
+          await sleep(2000);
+          videoStatus = await checkVideoStatus(videoId);
+          if (videoStatus.data.status === 'completed') {
+            break;
+          } else if (videoStatus.data.status === 'failed') {
+            const reason = videoStatus.data.error ? videoStatus.data.error.message : 'Unknown reason';
+            throw new Error(`Video generation failed: ${reason}`);
+          }
+        }
+
+        const videoUrl = videoStatus.data.video_url;
+        el.subtitles.textContent = text;
+
+        el.avatarVideo.src = videoUrl;
+        el.avatarVideo.muted = false; // Unmute for playback
+
+        el.avatarVideo.onplay = () => {
+          setTalking(false); // Hide loading indicator
+        };
+
+        el.avatarVideo.onended = () => {
+          el.subtitles.textContent = '—';
+        };
+
+        await el.avatarVideo.play();
+
+      } catch (error) {
+        console.error('Error in HeyGen video generation:', error);
+        el.subtitles.textContent = 'Sorry, I couldn\'t generate a video.';
+        setTalking(false);
+      }
     }
 
     // ---------- Speech-To-Text ----------
@@ -301,7 +309,7 @@
       el.input.value = '';
       const reply = smartReply(text);
       pushMessage(reply, 'bot');
-      if (el.autoSpeak.checked) await speak(reply);
+      await speak(reply);
       if (el.autoListen.checked) startListening();
     }
 
@@ -322,18 +330,6 @@
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault(); listening ? stopAll() : startListening();
       }
-    });
-
-    // Pupil follow effect
-    document.addEventListener('mousemove', (e) => {
-      const rect = el.avatar.getBoundingClientRect();
-      const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2 - 18;
-      const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (rect.width/2)));
-      const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (rect.height/2)));
-      const m = 6; // max px offset
-      const tx = dx * m; const ty = dy * m;
-      el.pupilL.style.transform = `translate(${tx}px, ${ty}px)`;
-      el.pupilR.style.transform = `translate(${tx}px, ${ty}px)`;
     });
 
     // Greet on load
